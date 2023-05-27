@@ -1,7 +1,7 @@
 {
-  "name": "node-typescript-boilerplate",
+  "name": "sncf-notifier",
   "version": "0.0.0",
-  "description": "Minimalistic boilerplate to quick-start Node.js development in TypeScript.",
+  "description": "A simple script to notify you about the status of your SNCF trains using the SNCF API and NTFY.sh",
   "type": "module",
   "engines": {
     "node": ">= 18.12 <19"
@@ -33,12 +33,14 @@
     "prettier": "prettier --config .prettierrc --write .",
     "test:watch": "jest --watch"
   },
-  "author": "Jakub Synowiec <jsynowiec@users.noreply.github.com>",
+  "author": "Vasseur Pierre-Adrien",
   "license": "Apache-2.0",
   "dependencies": {
+    "dotenv": "^16.0.3",
+    "moment-timezone": "^0.5.43",
+    "node-cron": "^3.0.2",
+    "node-fetch": "^2.6.11",
+    "sncf-api-wrapper": "^0.0.9",
     "tslib": "~2.5"
-  },
-  "volta": {
-    "node": "18.12.1"
   }
 }

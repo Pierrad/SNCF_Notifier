@@ -1,34 +1,55 @@
-/**
- * Some predefined delay values (in milliseconds).
- */
-export enum Delays {
-  Short = 500,
-  Medium = 2000,
-  Long = 5000,
+import fetch from 'node-fetch'
+import cron from 'node-cron'
+import { SimplifiedJourney, simplifiedJourneys } from 'sncf-api-wrapper'
+import moment from "moment-timezone";
+import * as dotenv from 'dotenv'
+dotenv.config()
+
+type Notification = {
+  title: string
+  Priority: 'urgent' | 'high' | 'default' | 'low' | 'min'
+  tags: string[]
+  body: string
 }
 
-/**
- * Returns a Promise<string> that resolves after a given time.
- *
- * @param {string} name - A name.
- * @param {number=} [delay=Delays.Medium] - A number of milliseconds to delay resolution of the Promise.
- * @returns {Promise<string>}
- */
-function delayedHello(
-  name: string,
-  delay: number = Delays.Medium,
-): Promise<string> {
-  return new Promise((resolve: (value?: string) => void) =>
-    setTimeout(() => resolve(`Hello, ${name}`), delay),
-  );
+const URL = `http://ntfy.sh/${process.env.NTFY_TOPIC}`
+
+export function dateToReadableDate(date: Date): string {
+  return moment(date).tz("Europe/Paris").format("DD/MM/YYYY HH:mm");
 }
 
-// Please see the comment in the .eslintrc.json file about the suppressed rule!
-// Below is an example of how to use ESLint errors suppression. You can read more
-// at https://eslint.org/docs/latest/user-guide/configuring/rules#disabling-rules
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export async function greeter(name: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-  // The name parameter should be of type string. Any is used only to trigger the rule.
-  return await delayedHello(name, Delays.Long);
+async function sendNotification(notification: Notification): Promise<void> {
+  return fetch(URL, {
+    method: 'POST',
+    headers: {
+      'Title': notification.title,
+      'Priority': notification.Priority,
+      'Tags': notification.tags.join(',')
+    },
+    body: notification.body
+  })
 }
+
+function transformJourney(journey: SimplifiedJourney): Notification {
+  const isDelayed = journey?.status === 'SIGNIFICANT_DELAYS'
+  const reason = journey?.sections[0]?.disruptions?.map(d => d.messages).join(', ')
+
+  const title = `Train du ${dateToReadableDate(journey.departureTime)} `
+  const body = isDelayed ? `Retard de ${journey.sections[0].delay} : ${reason}` : 'A l\'heure'
+  const tags = [isDelayed ? 'exclamation' : 'white_check_mark']
+  const Priority = 'high'
+  return { title, body, tags, Priority }
+}
+
+cron.schedule(process.env.CRON_SCHEDULE, () => {
+  simplifiedJourneys(process.env.SNCF_API_KEY, {
+    from: process.env.SNCF_FROM,
+    to: process.env.SNCF_TO,
+    count: 1,
+    data_freshness: 'realtime',
+    datetime: `${moment().tz("Europe/Paris").format("YYYYMMDD")}T${process.env.SNCF_TIME}`
+  }).then(journeys => {
+    const notification = transformJourney(journeys[0])
+    sendNotification(notification).then(() => console.log('✉️ Notification sent'))
+  })
+})
