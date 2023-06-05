@@ -1,5 +1,5 @@
 import fetch from 'node-fetch'
-import cron from 'node-cron'
+import CronJob from 'node-cron'
 import { SimplifiedJourney, simplifiedJourneys } from 'sncf-api-wrapper'
 import moment from "moment-timezone";
 import * as dotenv from 'dotenv'
@@ -41,7 +41,8 @@ function transformJourney(journey: SimplifiedJourney): Notification {
   return { title, body, tags, Priority }
 }
 
-cron.schedule(process.env.CRON_SCHEDULE, () => {
+const job = new CronJob(process.env.CRON_SCHEDULE, () => {
+  console.log('🚂 Fetching SNCF API')
   simplifiedJourneys(process.env.SNCF_API_KEY, {
     from: process.env.SNCF_FROM,
     to: process.env.SNCF_TO,
@@ -52,4 +53,6 @@ cron.schedule(process.env.CRON_SCHEDULE, () => {
     const notification = transformJourney(journeys[0])
     sendNotification(notification).then(() => console.log('✉️ Notification sent'))
   })
-})
+}, null, true, 'Europe/Paris')
+
+job.start()
